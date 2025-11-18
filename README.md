@@ -1,6 +1,3 @@
-Pero una desinstalación completa, que borre todo, claves, todo, lo que hace apt también quiero que lo borre, no debe quedar rastro alguno
-
-
 # Microservicios y Datos Distribuidos.
 
 ## Arquitectura Médica con Citus.
@@ -759,30 +756,4 @@ kubectl apply -f k8s/backend-service.yaml -n $K8S_NAMESPACE
 kubectl get pods -n $K8S_NAMESPACE
 kubectl logs -n $K8S_NAMESPACE deployment/backend
 minikube service backend-service -n $K8S_NAMESPACE --url
-```
-
-# Eliminar todo el proyecto
-*Nota: La siguiente sentencia de comandos dejará a su computador libre del proyecto. Tengo mucho cuidado.*
-```bash
-kubectl delete namespace "$K8S_NAMESPACE" --ignore-not-found
-kubectl delete -f k8s/backend-deployment.yaml --ignore-not-found
-kubectl delete -f k8s/backend-service.yaml --ignore-not-found
-kubectl delete -f k8s/citus --ignore-not-found
-minikube stop
-minikube delete
-docker ps -a -q | xargs -r docker rm -f
-docker images -a -q | xargs -r docker rmi -f
-docker volume ls -q | xargs -r docker volume rm -f
-docker network ls -q | xargs -r docker network rm
-rm -rf "$PROJECT_DIR"
-rm -rf ~/venv
-sudo rm -f /etc/nginx/sites-enabled/"$PROJECT_NAME"
-sudo rm -f /etc/nginx/sites-available/"$PROJECT_NAME"
-sudo nginx -s reload
-sudo rm -rf /etc/apt/keyrings/docker.gpg
-sudo rm -f /etc/apt/sources.list.d/docker.list
-sudo apt purge -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin libcairo2 libpango-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info libjpeg-dev libxml2 libxslt1.1
-sudo apt autoremove -y
-sudo apt clean
-sudo delgroup docker 2>/dev/null
 ```
