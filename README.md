@@ -268,7 +268,7 @@ EOF
 
 ##### 9.8 Archivo backend/app/services/auth_service.py.
 ```bash
-cat <<EOF > backend/app/schemas/auth.py
+cat <<EOF > backend/app/services/auth_service.py
 from app.db.connection import query_one, execute
 from app.core.security import get_password_hash, verify_password, create_access_token
 import uuid
