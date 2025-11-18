@@ -18,7 +18,7 @@ sudo apt update && sudo apt upgrade -y
 
 #### 2. Instalar utilidades y herramientas de desarrollo.
 ```bash
-sudo apt install -y curl wget git vim htop unzip ca-certificates python3 python3-pip python3-venv libcairo2 libpango-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info libjpeg-dev libxml2 libxslt1.1
+sudo apt install -y curl wget git vim htop unzip ca-certificates python3 python3-pip python3-venv libcairo2 libpango-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info libjpeg-dev libxml2 libxslt1.1
 ```
 
 #### 3. Crear directorio seguro para claves GPG.
