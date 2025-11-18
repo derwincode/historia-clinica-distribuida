@@ -250,7 +250,7 @@ class UserCreate(BaseModel):
     apellido: constr(min_length=1)
     email: EmailStr
     password: constr(min_length=8)
-    rol: constr(regex="^(paciente|medico|admisionista|resultados)$")
+    rol: constr(pattern="^(paciente|medico|admisionista|resultados)$")
 
 class UserOut(BaseModel):
     id: Optional[str]
