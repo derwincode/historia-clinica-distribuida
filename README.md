@@ -518,7 +518,7 @@ EOF
 sudo chown -R $(whoami):www-data "$PROJECT_DIR"
 sudo find "$PROJECT_DIR" -type d -exec chmod 755 {} \;
 sudo find "$PROJECT_DIR" -type f -exec chmod 644 {} \;
-sudo chmod o+x "$HOME" "$HOME/Documents" "$PROJECT_DIR"
+sudo chmod o+x "$HOME" "$(xdg-user-dir DOCUMENTS)" "$PROJECT_DIR"
 ```
 
 ##### 11.2 Añadir el contenido de sites-available
