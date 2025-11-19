@@ -1335,7 +1335,7 @@ spec:
 EOF
 ```
 
-##### 10.2 Archivo k8s/backend-service.yaml.
+##### 11.2 Archivo k8s/backend-service.yaml.
 ```bash
 cat <<EOF > k8s/backend-service.yaml
 apiVersion: v1
@@ -1354,7 +1354,7 @@ spec:
 EOF
 ```
 
-##### 10.3 Archivo k8s/citus/citus-coordinator-service.yaml.
+##### 11.3 Archivo k8s/citus/citus-coordinator-service.yaml.
 ```bash
 cat <<EOF > k8s/citus/citus-coordinator-service.yaml
 apiVersion: v1
@@ -1372,7 +1372,7 @@ spec:
 EOF
 ```
 
-##### 10.4 Archivo k8s/citus/citus-coordinator-statefulset.yaml.
+##### 11.4 Archivo k8s/citus/citus-coordinator-statefulset.yaml.
 ```bash
 cat <<EOF > k8s/citus/citus-coordinator-statefulset.yaml
 apiVersion: apps/v1
@@ -1419,7 +1419,7 @@ spec:
 EOF
 ```
 
-##### 10.5 Archivo k8s/citus/citus-worker-service.yaml.
+##### 11.5 Archivo k8s/citus/citus-worker-service.yaml.
 ```bash
 cat <<EOF > k8s/citus/citus-worker-service.yaml
 apiVersion: v1
@@ -1437,7 +1437,7 @@ spec:
 EOF
 ```
 
-##### 10.6 Archivo k8s/citus/citus-worker-statefulset.yaml.
+##### 11.6 Archivo k8s/citus/citus-worker-statefulset.yaml.
 ```bash
 cat <<EOF > k8s/citus/citus-worker-statefulset.yaml
 apiVersion: apps/v1
@@ -1483,7 +1483,7 @@ EOF
 ```
 
 #### Configurar nginx.
-##### 11.1 Dar permisos correctos al proyecto.
+##### 12.1 Dar permisos correctos al proyecto.
 ```bash
 sudo chown -R $(whoami):www-data "$PROJECT_DIR"
 sudo find "$PROJECT_DIR" -type d -exec chmod 755 {} \;
@@ -1491,7 +1491,7 @@ sudo find "$PROJECT_DIR" -type f -exec chmod 644 {} \;
 sudo chmod o+x "$HOME" "$(xdg-user-dir DOCUMENTS)" "$PROJECT_DIR"
 ```
 
-##### 11.2 Añadir el contenido de sites-available
+##### 12.2 Añadir el contenido de sites-available
 ```bash
 sudo tee /etc/nginx/sites-available/$PROJECT_NAME > /dev/null <<EOF
 server {
@@ -1545,14 +1545,14 @@ server {
 EOF
 ```
 
-##### 11.3 Activar la configuración.
+##### 12.3 Activar la configuración.
 ```bash
 sudo ln -sf /etc/nginx/sites-available/$PROJECT_NAME /etc/nginx/sites-enabled/$PROJECT_NAME
 sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-#### 12. Instalar Kubernetes CLI y Minikube.
+#### 13. Instalar Kubernetes CLI y Minikube.
 ```bash
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 chmod +x kubectl && sudo mv kubectl /usr/local/bin/
@@ -1560,36 +1560,36 @@ curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
 ```
 
-#### 13. Crear y activar el entorno virtual de Python.
+#### 14. Crear y activar el entorno virtual de Python.
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-#### 14. Iniciar Minikube y crear namespace.
+#### 15. Iniciar Minikube y crear namespace.
 ```bash
 minikube start --driver=docker
 kubectl create namespace $K8S_NAMESPACE
 ```
 
-#### 15. Iniciar clinica-secrets.
+#### 16. Iniciar clinica-secrets.
 ```bash
 kubectl create secret generic clinica-secrets -n $K8S_NAMESPACE --from-literal=DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$COORDINATOR_HOST:5432/$DB_NAME"
 ```
 
-#### 16. Configurar middleware
+#### 17. Configurar middleware
 ```bash
 kubectl apply -f backend/app/middleware/middleware-deployment.yaml -n $K8S_NAMESPACE
 ```
 
-#### 17. Aplicar configuración de Citus.
+#### 18. Aplicar configuración de Citus.
 ```bash
 kubectl apply -f k8s/citus -n $K8S_NAMESPACE
 ```
 
 *Nota: Espera al menos 30 segundos antes de continuar para asegurar que los pods del coordinador y los workers estén totalmente inicializados y listos para conexiones.*
 
-#### 18. Configurar nodos y crear tablas distribuidas.
+#### 19. Configurar nodos y crear tablas distribuidas.
 ```bash
 kubectl exec -n $K8S_NAMESPACE -i citus-coordinator-0 -- psql -U $DB_USER -d $DB_NAME <<EOF
 SELECT * FROM master_add_node('citus-worker-0.citus-worker.$K8S_NAMESPACE.svc.cluster.local', 5432);
@@ -1711,19 +1711,19 @@ SELECT create_reference_table('token_auditoria');
 EOF
 ```
 
-#### 19. Construir imagen del backend y cargar en Minikube.
+#### 20. Construir imagen del backend y cargar en Minikube.
 ```bash
 docker build -t $BACKEND_IMAGE backend/
 minikube image load $BACKEND_IMAGE
 ```
 
-#### 20. Verificar pods y nodos activos.
+#### 21. Verificar pods y nodos activos.
 ```bash
 kubectl get pods,svc -n $K8S_NAMESPACE -o wide
 kubectl exec -n $K8S_NAMESPACE -it citus-coordinator-0 -- psql -U $DB_USER -d $DB_NAME -c "SELECT * FROM citus_get_active_worker_nodes();"
 ```
 
-##### 21 Aplicar configuración.
+##### 22. Aplicar configuración.
 ```bash
 kubectl apply -f k8s/backend-deployment.yaml -n $K8S_NAMESPACE
 kubectl apply -f k8s/backend-service.yaml -n $K8S_NAMESPACE
@@ -1731,7 +1731,7 @@ kubectl apply -f k8s/backend-service.yaml -n $K8S_NAMESPACE
 
 *Nota: Espera unos 30 segundos antes de continuar. Esto garantiza que los pods del backend estén completamente desplegados y listos para recibir tráfico.*
 
-#### 22. Probar el backend desde el clúster.
+#### 23. Probar el backend desde el clúster.
 ```bash
 kubectl get pods -n $K8S_NAMESPACE
 kubectl logs -n $K8S_NAMESPACE deployment/backend
