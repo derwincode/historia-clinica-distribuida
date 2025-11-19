@@ -1621,7 +1621,7 @@ DROP TABLE IF EXISTS paciente CASCADE;
 CREATE TABLE paciente (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tipo_documento VARCHAR(20),
-    documento_id VARCHAR(30) UNIQUE NOT NULL,
+    documento_id VARCHAR(30) NOT NULL,
     fecha_nacimiento DATE NOT NULL,
     sexo VARCHAR(15),
     telefono VARCHAR(30),
