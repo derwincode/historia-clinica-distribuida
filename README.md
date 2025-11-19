@@ -256,8 +256,12 @@ EOF
 ```bash
 cat <<EOF > backend/app/services/login.py
 # backend/app/services/login.py
-from app.services.register import get_user_by_email
+# backend/app/services/login.py
 from app.core.security import verify_password, create_access_token
+from app.db.connection import query_one  # helper para DB
+
+def get_user_by_email(email: str):
+    return query_one("SELECT * FROM usuario WHERE email = %s", (email,))
 
 def authenticate_user(email: str, password: str):
     user = get_user_by_email(email)
