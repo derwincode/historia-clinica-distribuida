@@ -292,10 +292,25 @@ EOF
 cat <<EOF > backend/app/main.py
 # backend/app/main.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.db.connection import query_one
 from app.api.v1.endpoints import auth
 
 app = FastAPI()
+
+origins = [
+    "http://127.0.0.1:8085",
+    "http://localhost:8085",
+    "https://clinica.derwincode.com"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/ping")
 def ping():
