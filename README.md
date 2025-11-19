@@ -826,6 +826,7 @@ h2 {
     font-size: 0.9em;
   }
 }
+EOF
 ```
 
 ##### 10.3 frontend/html/admisionistas.html.
@@ -1040,6 +1041,7 @@ cat <<EOF > frontend/html/admisionistas.html
 </body>
 
 </html>
+EOF
 ```
 
 ##### 10.4 frontend/html/index.html.
@@ -1098,6 +1100,7 @@ cat <<EOF > frontend/html/index.html
 </body>
 
 </html>
+EOF
 ```
 
 ##### 10.5 frontend/javascript/admisionista.js.
@@ -1172,6 +1175,7 @@ const handleRegistroPaciente = async e => {
 
 const registroForm = $('registro-form');
 if (registroForm) registroForm.addEventListener('submit', handleRegistroPaciente);
+EOF
 ```
 
 ##### 10.6 frontend/javascript/api.js.
@@ -1201,6 +1205,7 @@ export class API {
         }
     }
 }
+EOF
 ```
 
 ##### 10.7 frontend/javascript/index.js.
@@ -1285,6 +1290,7 @@ const handleLogin = async e => {
 };
 
 $('login-form').addEventListener('submit', handleLogin);
+EOF
 ```
 
 ##### 10.8 frontend/javascript/showmessaje.js.
@@ -1303,6 +1309,7 @@ export function showmessaje(message, type) {
         onclick: function () { }
     }).showToast();
 }
+EOF
 ```
 
 #### Configurar Kubernetes para Citus.
