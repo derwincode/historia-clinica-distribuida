@@ -299,9 +299,8 @@ from app.api.v1.endpoints import auth
 app = FastAPI()
 
 origins = [
-    "http://127.0.0.1:8085",
-    "http://localhost:8085",
-    "https://clinica.derwincode.com"
+    "https://clinica.derwincode.com",
+    "https://apiclinica.derwincode.com"
 ]
 
 app.add_middleware(
