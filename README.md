@@ -75,35 +75,24 @@ k8s/citus
 touch backend/app/__init__.py
 ```
 
-##### 9.2 Archivo backend/app/api/v1/endpoints/auth.py.
+##### 9.2 Archivo # backend/app/api/v1/endpoints/login.py.
 ```bash
-cat <<EOF > backend/app/api/v1/endpoints/auth.py
-from fastapi import APIRouter, HTTPException, status
-from app.schemas.auth import UserCreate, UserOut, TokenResponse
-from app.services.auth_service import create_user, authenticate_and_create_token
-from pydantic import ValidationError
+cat <<EOF > backend/app/api/v1/endpoints/login.py
+# backend/app/api/v1/endpoints/login.py
+from fastapi import APIRouter, HTTPException
+from app.schemas.auth import TokenResponse
+from app.services.login import authenticate_user
+from pydantic import BaseModel, EmailStr
 
 router = APIRouter()
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def register(user: UserCreate):
-    try:
-        created = create_user(user)
-    except ValueError as e:
-        if str(e) == "email_exists":
-            raise HTTPException(status_code=400, detail="El correo ya está registrado")
-        raise HTTPException(status_code=500, detail="Error al crear usuario")
-    # create token
-    auth = authenticate_and_create_token(user.email, user.password)
-    if not auth:
-        raise HTTPException(status_code=500, detail="Usuario creado pero no se pudo generar token")
-    return {"access_token": auth["access_token"], "token_type": "bearer"}
-
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
 
 @router.post("/login", response_model=TokenResponse)
-def login(form_data: UserCreate):
-    # Reuse authentication helper (we accept email + password in same UserCreate shape for simplicity)
-    auth = authenticate_and_create_token(form_data.email, form_data.password)
+def login(data: LoginRequest):
+    auth = authenticate_user(data.email, data.password)
     if not auth:
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     return {"access_token": auth["access_token"], "token_type": "bearer"}
@@ -113,6 +102,7 @@ EOF
 ##### 9.3 Archivo backend/app/core/security.py.
 ```bash
 cat <<EOF > backend/app/core/security.py
+# backend/app/core/security.py
 import os
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
@@ -120,9 +110,9 @@ from jose import jwt
 
 PWD_CTX = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "cambiame_ya")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", os.urandom(32).hex())
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 def get_password_hash(password: str) -> str:
     return PWD_CTX.hash(password)
@@ -130,12 +120,12 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return PWD_CTX.verify(plain_password, hashed_password)
 
-def create_access_token(subject: str, roles: str, expires_delta: int = None):
+def create_access_token(subject: str, roles: str, expires_delta: int = None) -> str:
     expire = datetime.utcnow() + timedelta(
-        minutes=(expires_delta if expires_delta is not None else ACCESS_TOKEN_EXPIRE_MINUTES)
+        minutes=expires_delta if expires_delta is not None else ACCESS_TOKEN_EXPIRE_MINUTES
     )
-    to_encode = {"sub": subject, "roles": roles, "exp": expire}
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    payload = {"sub": subject, "roles": roles, "exp": expire}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 EOF
 ```
 
@@ -186,23 +176,13 @@ EOF
 ##### 9.5 Archivo backend/app/main.py.
 ```bash
 cat <<EOF > backend/app/main.py
+# backend/app/main.py
 from fastapi import FastAPI
-import psycopg2
-import os
+from app.api.v1.endpoints import login
 
 app = FastAPI()
-def db():
-    return psycopg2.connect(os.getenv("DATABASE_URL"))
 
-@app.get("/ping")
-def ping():
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("SELECT 1;")
-    return {"pong": cur.fetchone()[0]}
-
-from app.api.v1.endpoints import auth
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Autenticación"])
+app.include_router(login.router, prefix="/api/v1/auth", tags=["Autenticación"])
 EOF
 ```
 
@@ -239,6 +219,7 @@ EOF
 ##### 9.7 Archivo backend/app/schemas/auth.py.
 ```bash
 cat <<EOF > backend/app/schemas/auth.py
+# backend/app/schemas/auth.py
 from pydantic import BaseModel, EmailStr, constr
 from typing import Optional
 
@@ -248,6 +229,14 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: constr(min_length=8)
     rol: constr(pattern="^(paciente|medico|admisionista|resultados)$")
+    tipo_doc: Optional[str]
+    documento: Optional[str]
+    nacimiento: Optional[str]
+    sexo: Optional[str]
+    telefono: Optional[str]
+    eps: Optional[str]
+    regimen: Optional[str]
+    usuario: Optional[str]
 
 class UserOut(BaseModel):
     id: Optional[str]
@@ -263,43 +252,32 @@ class TokenResponse(BaseModel):
 EOF
 ```
 
-##### 9.8 Archivo backend/app/services/auth_service.py.
+##### 9.8 Archivo backend/app/services/login.py
 ```bash
 cat <<EOF > backend/app/services/auth_service.py
-from app.db.connection import query_one, execute
-from app.core.security import get_password_hash, verify_password, create_access_token
-import uuid
+# backend/app/services/login.py
+from app.services.register import get_user_by_email
+from app.core.security import verify_password, create_access_token
 
-def get_user_by_email(email: str):
-    q = "SELECT id, nombre, apellido, email, hash_password, rol, fecha_creacion FROM usuario WHERE email = %s"
-    return query_one(q, (email,))
-
-def create_user(user_in):
-    # Check duplicate
-    existing = get_user_by_email(user_in.email)
-    if existing:
-        raise ValueError("email_exists")
-
-    hashed = get_password_hash(user_in.password)
-    q = """
-    INSERT INTO usuario (nombre, apellido, email, hash_password, rol)
-    VALUES (%s, %s, %s, %s, %s)
-    RETURNING id, nombre, apellido, email, rol, fecha_creacion
-    """
-    row = execute(q, (user_in.nombre, user_in.apellido, user_in.email, hashed, user_in.rol))
-    # execute() returns None if DB cursor.fetchone() not available; so re-query the inserted user by email
-    if not row:
-        return get_user_by_email(user_in.email)
-    return row
-
-def authenticate_and_create_token(email: str, password: str):
+def authenticate_user(email: str, password: str):
     user = get_user_by_email(email)
     if not user:
         return None
+
     if not verify_password(password, user["hash_password"]):
         return None
+
     token = create_access_token(subject=str(user["id"]), roles=user["rol"])
-    return {"access_token": token, "user": user}
+    return {
+        "access_token": token,
+        "user": {
+            "id": user["id"],
+            "nombre": user["nombre"],
+            "apellido": user["apellido"],
+            "email": user["email"],
+            "rol": user["rol"]
+        }
+    }
 EOF
 ```
 
