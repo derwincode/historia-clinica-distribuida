@@ -256,7 +256,6 @@ EOF
 ```bash
 cat <<EOF > backend/app/services/login.py
 # backend/app/services/login.py
-# backend/app/services/login.py
 from app.core.security import verify_password, create_access_token
 from app.db.connection import query_one  # helper para DB
 
