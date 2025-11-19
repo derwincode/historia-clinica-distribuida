@@ -325,6 +325,9 @@ def create_user(nombre: str, apellido: str, email: str, password: str, rol: str)
         if hasattr(e, 'pgcode') and e.pgcode == errors.UNIQUE_VIOLATION:
             return None
         raise
+
+def get_user_by_email(email: str):
+    return query_one("SELECT * FROM usuario WHERE email = %s", (email,))
 EOF
 ```
 
