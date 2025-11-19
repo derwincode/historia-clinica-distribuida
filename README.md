@@ -113,9 +113,10 @@ router = APIRouter()
 def register_user_endpoint(user: RegisterUser):
     if get_user_by_email(user.email):
         raise HTTPException(status_code=400, detail="Email ya registrado")
+    
     created_user = create_user(user.nombre, user.apellido, user.email, user.password, user.rol)
     if not created_user:
-        raise HTTPException(status_code=500, detail="No se pudo crear el usuario")
+        raise HTTPException(status_code=400, detail="Email ya registrado")
 
     created_user['fecha_creacion'] = created_user['fecha_creacion'].isoformat()
     return created_user
@@ -307,8 +308,9 @@ EOF
 ```bash
 cat <<EOF > backend/app/services/register_user.py
 # backend/app/services/register_user.py
-from app.db.connection import query_one
+from app.db.connection import query_one, execute
 from app.core.security import get_password_hash
+from psycopg2 import errors
 
 def create_user(nombre: str, apellido: str, email: str, password: str, rol: str):
     hashed_password = get_password_hash(password)
@@ -317,10 +319,12 @@ def create_user(nombre: str, apellido: str, email: str, password: str, rol: str)
         VALUES (%s, %s, %s, %s, %s)
         RETURNING id, nombre, apellido, email, rol, fecha_creacion
     """
-    return query_one(query, (nombre, apellido, email, hashed_password, rol))
-
-def get_user_by_email(email: str):
-    return query_one("SELECT * FROM usuario WHERE email = %s", (email,))
+    try:
+        return query_one(query, (nombre, apellido, email, hashed_password, rol))
+    except Exception as e:
+        if hasattr(e, 'pgcode') and e.pgcode == errors.UNIQUE_VIOLATION:
+            return None
+        raise
 EOF
 ```
 
