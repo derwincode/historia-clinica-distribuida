@@ -75,7 +75,7 @@ k8s/citus
 cat <<EOF > backend/app/api/v1/endpoints/auth.py
 # backend/app/api/v1/endpoints/auth.py
 from fastapi import APIRouter, HTTPException, status
-from app.schemas.auth import UserLogin, UserCreate, TokenResponse
+from app.schemas.auth import UserLogin, UserCreate
 from app.services.auth_service import create_user_service, authenticate_and_create_token
 
 router = APIRouter()
@@ -86,16 +86,22 @@ def register(user: UserCreate):
         create_user_service(user)
     except ValueError as e:
         if str(e) == "email_exists":
-            raise HTTPException(status_code=400, detail="Este usuario ya existe")
-        raise HTTPException(status_code=500, detail="No se ha podido registrar el usuario")
-    return {"message": "Usuario registrado"}
+            return {"status": "error", "message": "Este usuario ya existe"}
+        return {"status": "error", "message": "No se ha podido registrar el usuario"}
+    return {"status": "success", "message": "Usuario registrado"}
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login")
 def login(form_data: UserLogin):
     auth = authenticate_and_create_token(form_data.email, form_data.password)
     if not auth:
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    return {"access_token": auth["access_token"], "token_type": "bearer"}
+        return {"status": "error", "message": "No se pudo iniciar su sesión"}
+
+    return {
+        "status": "success",
+        "message": "Inicio de sesión exitoso",
+        "token": auth["access_token"],
+        "rol": auth["user"]["rol"]
+    }
 EOF
 ```
 
