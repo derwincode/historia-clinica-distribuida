@@ -254,7 +254,7 @@ EOF
 
 ##### 9.8 Archivo backend/app/services/login.py
 ```bash
-cat <<EOF > backend/app/services/auth_service.py
+cat <<EOF > backend/app/services/login.py
 # backend/app/services/login.py
 from app.services.register import get_user_by_email
 from app.core.security import verify_password, create_access_token
