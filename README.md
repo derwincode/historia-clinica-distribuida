@@ -678,15 +678,12 @@ SELECT create_reference_table('usuario');
 DROP TABLE IF EXISTS paciente CASCADE;
 CREATE TABLE paciente (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombres VARCHAR(100) NOT NULL,
-    apellidos VARCHAR(100) NOT NULL,
     documento_id VARCHAR(30) UNIQUE NOT NULL,
     tipo_documento VARCHAR(20),
     fecha_nacimiento DATE NOT NULL,
     sexo VARCHAR(15),
     direccion TEXT,
     telefono VARCHAR(30),
-    correo VARCHAR(100),
     contacto_emergencia VARCHAR(150),
     alergias TEXT,
     medicamentos_actuales TEXT,
