@@ -1611,110 +1611,28 @@ CREATE TABLE usuario (
     apellido VARCHAR(100) NOT NULL,
     email VARCHAR(150) UNIQUE NOT NULL,
     hash_password TEXT NOT NULL,
-    rol VARCHAR(20) NOT NULL CHECK (rol IN ('paciente','medico','admisionista','resultados')),
-    fecha_creacion TIMESTAMP NOT NULL DEFAULT NOW()
+    rol VARCHAR(20) NOT NULL CHECK (rol IN ('paciente','medico','admisionista')),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 SELECT create_reference_table('usuario');
 
 DROP TABLE IF EXISTS paciente CASCADE;
 CREATE TABLE paciente (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    documento_id VARCHAR(30) UNIQUE NOT NULL,
     tipo_documento VARCHAR(20),
+    documento_id VARCHAR(30) UNIQUE NOT NULL,
     fecha_nacimiento DATE NOT NULL,
     sexo VARCHAR(15),
-    direccion TEXT,
     telefono VARCHAR(30),
-    contacto_emergencia VARCHAR(150),
-    alergias TEXT,
-    medicamentos_actuales TEXT,
     regimen VARCHAR(50),
     eps VARCHAR(100),
-    usuario_id UUID NOT NULL REFERENCES usuario(id)
+    tipo_sangre VARCHAR(10),
+    usuario_id UUID NOT NULL REFERENCES usuario(id),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 SELECT create_distributed_table('paciente', 'id');
-
-DROP TABLE IF EXISTS admision CASCADE;
-CREATE TABLE admision (
-    id UUID DEFAULT uuid_generate_v4(),
-    paciente_id UUID NOT NULL,
-    fecha_admision TIMESTAMP NOT NULL DEFAULT NOW(),
-    motivo TEXT,
-    estado VARCHAR(20) CHECK (estado IN ('abierta','cerrada')),
-    triage VARCHAR(20),
-    notas_ingreso TEXT
-);
-SELECT create_distributed_table('admision', 'paciente_id');
-
-DROP TABLE IF EXISTS medico_consulta CASCADE;
-CREATE TABLE medico_consulta (
-    id UUID DEFAULT uuid_generate_v4(),
-    admision_id UUID,
-    paciente_id UUID NOT NULL,
-    medico_id UUID NOT NULL,
-    fecha TIMESTAMP NOT NULL DEFAULT NOW(),
-    sintomas TEXT,
-    signos_vitales JSONB,
-    diagnostico TEXT,
-    plan_tratamiento TEXT
-);
-ALTER TABLE medico_consulta 
-  ADD CONSTRAINT fk_medico_usuario FOREIGN KEY (medico_id) REFERENCES usuario(id);
-SELECT create_distributed_table('medico_consulta', 'paciente_id');
-
-DROP TABLE IF EXISTS orden_medica CASCADE;
-CREATE TABLE orden_medica (
-    id UUID DEFAULT uuid_generate_v4(),
-    paciente_id UUID NOT NULL,
-    admision_id UUID,
-    medico_id UUID,
-    fecha TIMESTAMP NOT NULL DEFAULT NOW(),
-    tipo VARCHAR(50),
-    detalle TEXT
-);
-ALTER TABLE orden_medica 
-  ADD CONSTRAINT fk_orden_medico_usuario FOREIGN KEY (medico_id) REFERENCES usuario(id);
-SELECT create_distributed_table('orden_medica', 'paciente_id');
-
-DROP TABLE IF EXISTS resultados_laboratorio CASCADE;
-CREATE TABLE resultados_laboratorio (
-    id UUID DEFAULT uuid_generate_v4(),
-    paciente_id UUID NOT NULL,
-    admision_id UUID,
-    tipo_examen VARCHAR(100) NOT NULL,
-    fecha TIMESTAMP NOT NULL DEFAULT NOW(),
-    resultado TEXT,
-    responsable_id UUID
-);
-ALTER TABLE resultados_laboratorio 
-  ADD CONSTRAINT fk_resultados_responsable FOREIGN KEY (responsable_id) REFERENCES usuario(id);
-SELECT create_distributed_table('resultados_laboratorio', 'paciente_id');
-
-DROP TABLE IF EXISTS historia_clinica_pdf CASCADE;
-CREATE TABLE historia_clinica_pdf (
-    id UUID DEFAULT uuid_generate_v4(),
-    paciente_id UUID NOT NULL,
-    admision_id UUID,
-    nombre_archivo TEXT NOT NULL,
-    contenido BYTEA NOT NULL,
-    fecha_subida TIMESTAMP NOT NULL DEFAULT NOW(),
-    generado_por UUID
-);
-ALTER TABLE historia_clinica_pdf 
-  ADD CONSTRAINT fk_historia_generado_por FOREIGN KEY (generado_por) REFERENCES usuario(id);
-SELECT create_distributed_table('historia_clinica_pdf', 'paciente_id');
-
-DROP TABLE IF EXISTS token_auditoria CASCADE;
-CREATE TABLE token_auditoria (
-    id UUID DEFAULT uuid_generate_v4(),
-    usuario_id UUID NOT NULL,
-    accion TEXT NOT NULL,
-    ip VARCHAR(50),
-    timestamp TIMESTAMP NOT NULL DEFAULT NOW()
-);
-ALTER TABLE token_auditoria 
-  ADD CONSTRAINT fk_auditoria_usuario FOREIGN KEY (usuario_id) REFERENCES usuario(id);
-SELECT create_reference_table('token_auditoria');
 EOF
 ```
 
