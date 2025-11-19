@@ -75,7 +75,7 @@ k8s/citus
 touch backend/app/__init__.py
 ```
 
-##### 9.2 Archivo # backend/app/api/v1/endpoints/login.py.
+##### 9.2 Archivo backend/app/api/v1/endpoints/login.py.
 ```bash
 cat <<EOF > backend/app/api/v1/endpoints/login.py
 # backend/app/api/v1/endpoints/login.py
@@ -99,7 +99,28 @@ def login(data: LoginRequest):
 EOF
 ```
 
-##### 9.3 Archivo backend/app/core/security.py.
+##### 9.3 Archivo backend/app/api/v1/endpoints/register_user.py.
+```bash
+cat <<EOF > backend/app/api/v1/endpoints/register_user.py
+# backend/app/api/v1/endpoints/register_user.py
+from fastapi import APIRouter, HTTPException
+from app.schemas.auth import RegisterUser, UserOut
+from app.services.register_user import create_user, get_user_by_email
+
+router = APIRouter()
+
+@router.post("/register", response_model=UserOut)
+def register_user_endpoint(user: RegisterUser):
+    if get_user_by_email(user.email):
+        raise HTTPException(status_code=400, detail="Email ya registrado")
+    created_user = create_user(user.nombre, user.apellido, user.email, user.password, user.rol)
+    if not created_user:
+        raise HTTPException(status_code=500, detail="No se pudo crear el usuario")
+    return created_user
+EOF
+```
+
+##### 9.4 Archivo backend/app/core/security.py.
 ```bash
 cat <<EOF > backend/app/core/security.py
 # backend/app/core/security.py
@@ -129,7 +150,7 @@ def create_access_token(subject: str, roles: str, expires_delta: int = None) -> 
 EOF
 ```
 
-##### 9.4 Archivo backend/app/db/connection.py.
+##### 9.5 Archivo backend/app/db/connection.py.
 ```bash
 cat <<EOF > backend/app/db/connection.py
 # backend/app/db/connection.py
@@ -173,20 +194,21 @@ def execute(query, params=()):
 EOF
 ```
 
-##### 9.5 Archivo backend/app/main.py.
+##### 9.6 Archivo backend/app/main.py.
 ```bash
 cat <<EOF > backend/app/main.py
 # backend/app/main.py
 from fastapi import FastAPI
-from app.api.v1.endpoints import login
+from app.api.v1.endpoints import login, register_user
 
 app = FastAPI()
 
 app.include_router(login.router, prefix="/api/v1/auth", tags=["Autenticación"])
+app.include_router(register_user.router, prefix="/api/v1/auth", tags=["Registro"])
 EOF
 ```
 
-##### 9.6 Archivo backend/app/middleware/middleware-deployment.yaml.
+##### 9.7 Archivo backend/app/middleware/middleware-deployment.yaml.
 ```bash
 cat <<EOF > backend/app/middleware/middleware-deployment.yaml
 apiVersion: apps/v1
@@ -216,27 +238,22 @@ spec:
 EOF
 ```
 
-##### 9.7 Archivo backend/app/schemas/auth.py.
+##### 9.8 Archivo backend/app/schemas/auth.py.
 ```bash
 cat <<EOF > backend/app/schemas/auth.py
 # backend/app/schemas/auth.py
 from pydantic import BaseModel, EmailStr, constr
 from typing import Optional
 
-class UserCreate(BaseModel):
+from pydantic import BaseModel, EmailStr, constr
+from typing import Optional
+
+class RegisterUser(BaseModel):
     nombre: constr(min_length=1)
     apellido: constr(min_length=1)
     email: EmailStr
     password: constr(min_length=8)
     rol: constr(pattern="^(paciente|medico|admisionista|resultados)$")
-    tipo_doc: Optional[str]
-    documento: Optional[str]
-    nacimiento: Optional[str]
-    sexo: Optional[str]
-    telefono: Optional[str]
-    eps: Optional[str]
-    regimen: Optional[str]
-    usuario: Optional[str]
 
 class UserOut(BaseModel):
     id: Optional[str]
@@ -252,12 +269,12 @@ class TokenResponse(BaseModel):
 EOF
 ```
 
-##### 9.8 Archivo backend/app/services/login.py
+##### 9.9 Archivo backend/app/services/login.py
 ```bash
 cat <<EOF > backend/app/services/login.py
 # backend/app/services/login.py
 from app.core.security import verify_password, create_access_token
-from app.db.connection import query_one  # helper para DB
+from app.db.connection import query_one
 
 def get_user_by_email(email: str):
     return query_one("SELECT * FROM usuario WHERE email = %s", (email,))
@@ -284,7 +301,28 @@ def authenticate_user(email: str, password: str):
 EOF
 ```
 
-##### 9.9 Dockerfile.
+##### 9.10 backend/app/services/register_user.py
+```bash
+cat <<EOF > backend/app/services/register_user.py
+# backend/app/services/register_user.py
+from app.db.connection import query_one
+from app.core.security import get_password_hash
+
+def create_user(nombre: str, apellido: str, email: str, password: str, rol: str):
+    hashed_password = get_password_hash(password)
+    query = """
+        INSERT INTO usuario (nombre, apellido, email, hash_password, rol)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id, nombre, apellido, email, rol, fecha_creacion
+    """
+    return query_one(query, (nombre, apellido, email, hashed_password, rol))
+
+def get_user_by_email(email: str):
+    return query_one("SELECT * FROM usuario WHERE email = %s", (email,))
+EOF
+```
+
+##### 9.11 Dockerfile.
 ```bash
 cat <<EOF > backend/Dockerfile
 FROM python:3.11-slim
@@ -314,7 +352,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${BACKEND_PORT}"
 EOF
 ```
 
-##### 9.10 backend/requirements.txt.
+##### 9.12 backend/requirements.txt.
 ```bash
 cat <<EOF > backend/requirements.txt
 fastapi
