@@ -116,6 +116,8 @@ def register_user_endpoint(user: RegisterUser):
     created_user = create_user(user.nombre, user.apellido, user.email, user.password, user.rol)
     if not created_user:
         raise HTTPException(status_code=500, detail="No se pudo crear el usuario")
+
+    created_user['fecha_creacion'] = created_user['fecha_creacion'].isoformat()
     return created_user
 EOF
 ```
