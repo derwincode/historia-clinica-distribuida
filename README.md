@@ -236,7 +236,7 @@ class TokenResponse(BaseModel):
 EOF
 ```
 
-##### 9.7 backend/app/services/auth_service.py.
+##### 9.6 backend/app/services/auth_service.py.
 ```bash
 cat <<EOF > backend/app/services/auth_service.py
 # backend/app/services/auth_service.py
@@ -274,14 +274,14 @@ def authenticate_and_create_token(email: str, password: str):
 EOF
 ```
 
-#### 9.8 Crear archivo __init__.py
+#### 9.7 Crear archivo __init__.py
 ```bash
 cat <<EOF > backend/__init__.py
 # backend/app/__init__.py
 EOF
 ```
 
-##### 9.9 backend/main.py.
+##### 9.8 backend/main.py.
 ```bash
 cat <<EOF > backend/app/main.py
 # backend/app/main.py
@@ -303,7 +303,7 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Autenticación"])
 EOF
 ```
 
-##### 9.10 Dockerfile.
+##### 9.9 Dockerfile.
 ```bash
 cat <<EOF > backend/Dockerfile
 FROM python:3.11-slim
@@ -333,7 +333,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${BACKEND_PORT}"
 EOF
 ```
 
-##### 9.11 backend/requirements.txt.
+##### 9.10 backend/requirements.txt.
 ```bash
 cat <<EOF > backend/requirements.txt
 fastapi
