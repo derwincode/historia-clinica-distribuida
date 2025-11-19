@@ -755,16 +755,16 @@ SELECT create_reference_table('token_auditoria');
 EOF
 ```
 
-#### 19. Construir imagen del backend y cargar en Minikube.
-```bash
-docker build -t $BACKEND_IMAGE backend/
-minikube image load $BACKEND_IMAGE
-```
-
-#### 20. Verificar pods y nodos activos.
+#### 19. Verificar pods y nodos activos.
 ```bash
 kubectl get pods,svc -n $K8S_NAMESPACE -o wide
 kubectl exec -n $K8S_NAMESPACE -it citus-coordinator-0 -- psql -U $DB_USER -d $DB_NAME -c "SELECT * FROM citus_get_active_worker_nodes();"
+```
+
+#### 20. Construir imagen del backend y cargar en Minikube.
+```bash
+docker build -t $BACKEND_IMAGE backend/
+minikube image load $BACKEND_IMAGE
 ```
 
 ##### 21 Aplicar configuración.
