@@ -319,7 +319,8 @@ RUN apt-get update \
 
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install bcrypt==4.1.2
 
 COPY . .
 
@@ -332,7 +333,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "${BACKEND_PORT}"
 EOF
 ```
 
-##### 9.10 Dependencias.
+##### 9.10 backend/requirements.txt.
 ```bash
 cat <<EOF > backend/requirements.txt
 fastapi
@@ -346,6 +347,7 @@ python-multipart
 Jinja2
 WeasyPrint
 email-validator
+bcrypt==4.1.2
 EOF
 ```
 
