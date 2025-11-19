@@ -287,7 +287,7 @@ cat <<EOF > backend/__init__.py
 EOF
 ```
 
-##### 9.8 backend/main.py.
+##### 9.8 backend/app/main.py.
 ```bash
 cat <<EOF > backend/app/main.py
 # backend/app/main.py
