@@ -227,7 +227,7 @@ spec:
     spec:
       containers:
         - name: middleware
-          image: middleware-citus:1.0
+          image: $BACKEND_IMAGE
           ports:
             - containerPort: 8000
           envFrom:
@@ -329,6 +329,7 @@ passlib[bcrypt]
 python-multipart
 Jinja2
 WeasyPrint
+email-validator
 EOF
 ```
 
@@ -599,19 +600,24 @@ minikube start --driver=docker
 kubectl create namespace $K8S_NAMESPACE
 ```
 
-#### 15. Configurar middleware
+#### 15. Iniciar clinica-secrets.
+```bash
+kubectl create secret generic clinica-secrets -n $K8S_NAMESPACE --from-literal=DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@$COORDINATOR_HOST:5432/$DB_NAME"
+```
+
+#### 16. Configurar middleware
 ```bash
 kubectl apply -f backend/app/middleware/middleware-deployment.yaml -n $K8S_NAMESPACE
 ```
 
-#### 16. Aplicar configuración de Citus.
+#### 17. Aplicar configuración de Citus.
 ```bash
 kubectl apply -f k8s/citus -n $K8S_NAMESPACE
 ```
 
 *Nota: Espera al menos 30 segundos antes de continuar para asegurar que los pods del coordinador y los workers estén totalmente inicializados y listos para conexiones.*
 
-#### 17. Configurar nodos y crear tablas distribuidas.
+#### 18. Configurar nodos y crear tablas distribuidas.
 ```bash
 kubectl exec -n $K8S_NAMESPACE -i citus-coordinator-0 -- psql -U $DB_USER -d $DB_NAME <<EOF
 SELECT * FROM master_add_node('citus-worker-0.citus-worker.$K8S_NAMESPACE.svc.cluster.local', 5432);
@@ -731,19 +737,19 @@ SELECT create_reference_table('token_auditoria');
 EOF
 ```
 
-#### 18. Verificar pods y nodos activos.
+#### 19. Verificar pods y nodos activos.
 ```bash
 kubectl get pods,svc -n $K8S_NAMESPACE -o wide
 kubectl exec -n $K8S_NAMESPACE -it citus-coordinator-0 -- psql -U $DB_USER -d $DB_NAME -c "SELECT * FROM citus_get_active_worker_nodes();"
 ```
 
-#### 19. Construir imagen del backend y cargar en Minikube.
+#### 20. Construir imagen del backend y cargar en Minikube.
 ```bash
 docker build -t $BACKEND_IMAGE backend/
 minikube image load $BACKEND_IMAGE
 ```
 
-##### 20 Aplicar configuración.
+##### 21 Aplicar configuración.
 ```bash
 kubectl apply -f k8s/backend-deployment.yaml -n $K8S_NAMESPACE
 kubectl apply -f k8s/backend-service.yaml -n $K8S_NAMESPACE
@@ -751,7 +757,7 @@ kubectl apply -f k8s/backend-service.yaml -n $K8S_NAMESPACE
 
 *Nota: Espera unos 30 segundos antes de continuar. Esto garantiza que los pods del backend estén completamente desplegados y listos para recibir tráfico.*
 
-#### 21. Probar el backend desde el clúster.
+#### 22. Probar el backend desde el clúster.
 ```bash
 kubectl get pods -n $K8S_NAMESPACE
 kubectl logs -n $K8S_NAMESPACE deployment/backend
