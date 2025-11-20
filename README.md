@@ -75,12 +75,14 @@ k8s/citus
 cat <<EOF > backend/app/api/v1/endpoints/auth.py
 # backend/app/api/v1/endpoints/auth.py
 from fastapi import APIRouter, HTTPException, status, Body, Depends
-from app.schemas.auth import UserLogin, UserCreate, PacienteCreate
+from app.schemas.auth import UserLogin, UserCreate, PacienteCreate, InternadoCreate
 from app.services.auth_service import (
     create_user_service,
     authenticate_and_create_token,
-    create_paciente_service
+    create_paciente_service,
+    create_internado_service
 )
+
 from app.core.security import get_current_user
 
 router = APIRouter()
@@ -132,6 +134,33 @@ def register_paciente(
         return {"status": "error", "message": "No se pudo registrar el paciente"}
 
     return {"status": "success", "message": "Paciente registrado", "data": result}
+
+
+@router.post("/register_internado", status_code=201)
+def register_internado(
+    payload: InternadoCreate = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["rol"] != "admisionista":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tiene permisos para registrar internados"
+        )
+
+    try:
+        internado = create_internado_service(payload)
+    except ValueError as e:
+        if str(e) == "paciente_no_encontrado":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado"
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al registrar internado"
+        )
+
+    return {"status": "success", "message": "Internado registrado", "data": internado}
 EOF
 ```
 
@@ -298,6 +327,12 @@ class PacienteCreate(BaseModel):
     eps: Optional[str]
     tipo_sangre: Optional[str]
 
+class InternadoCreate(BaseModel):
+    documento_id: constr(min_length=1)
+    motivo: constr(min_length=1)
+    sala: constr(min_length=1)
+    fecha_ingreso: str
+
 class UserOut(BaseModel):
     id: Optional[str]
     nombre: str
@@ -318,7 +353,7 @@ cat <<EOF > backend/app/services/auth_service.py
 # backend/app/services/auth_service.py
 from app.db.connection import query_one, execute
 from app.core.security import get_password_hash, verify_password, create_access_token
-from app.schemas.auth import UserCreate, PacienteCreate
+from app.schemas.auth import UserCreate, PacienteCreate, InternadoCreate
 
 def get_user_by_email(email: str):
     q = "SELECT id, nombre, apellido, email, hash_password, rol, created_at, updated_at FROM usuario WHERE email = %s"
@@ -376,6 +411,20 @@ def create_paciente_service(user_in: UserCreate, paciente_in: PacienteCreate):
 
     paciente = execute(q, params)
     return {"usuario": user, "paciente": paciente}
+
+def create_internado_service(internado: InternadoCreate):
+    q_paciente = "SELECT id FROM paciente WHERE documento_id = %s"
+    paciente = query_one(q_paciente, (internado.documento_id,))
+    if not paciente:
+        raise ValueError("paciente_no_encontrado")
+
+    q_insert = """
+    INSERT INTO internado (paciente_id, motivo, sala, fecha_ingreso)
+    VALUES (%s, %s, %s, %s)
+    RETURNING id, paciente_id, created_at, updated_at
+    """
+    result = execute(q_insert, (paciente["id"], internado.motivo, internado.sala, internado.fecha_ingreso))
+    return result
 EOF
 ```
 
@@ -857,7 +906,7 @@ cat <<'EOF' > frontend/html/admisionista.html
             <li onclick="mostrarVista('vistaMedicos')">Médicos</li>
             <li onclick="mostrarVista('vistaHistoria')">Historia Clínica</li>
         </ul>
-        <button class="btn-primary logout">Cerrar sesión</button>
+        <button class="btn-primary logout" onclick="location.href='/'">Cerrar sesión</button>
     </div>
 
     <div class="main-content">
@@ -920,14 +969,14 @@ cat <<'EOF' > frontend/html/admisionista.html
 
         <div id="vistaInternados" class="vista">
             <div class="card">
-                <h3>Pacientes Internados</h3>
-                <div class="form-grid-2">
-                    <input type="text" id="iDocumento" placeholder="Número de documento" required>
-                    <input type="text" id="iMotivo" placeholder="Motivo de internación" required>
-                    <input type="text" id="iSala" placeholder="Sala" required>
-                    <input type="date" id="iFechaIngreso" required>
-                    <button class="btn-primary" onclick="guardarInternado()">Guardar</button>
-                </div>
+                <h3>Internar un paciente</h3>
+                <form id="internado-form" class="form-grid-2">
+                    <input type="text" name="documento_id" id="iDocumento" placeholder="Número de documento" required>
+                    <input type="text" name="motivo" id="iMotivo" placeholder="Motivo de internación" required>
+                    <input type="text" name="sala" id="iSala" placeholder="Sala" required>
+                    <input type="date" name="fecha_ingreso" id="iFechaIngreso" required>
+                    <button type="submit" class="btn-primary">Guardar</button>
+                </form>
             </div>
         </div>
 
@@ -1180,6 +1229,45 @@ const handleRegistroPaciente = async e => {
 
 const registroForm = $('registro-form');
 if (registroForm) registroForm.addEventListener('submit', handleRegistroPaciente);
+
+
+const handleInternado = async e => {
+    e.preventDefault();
+
+    const token = localStorage.getItem('jwt');
+    if (!token) return showmessaje('Debe iniciar sesión', 'error');
+
+    const data = getFormData(e.target);
+    const requiredFields = ['documento_id','motivo','sala','fecha_ingreso'];
+
+    for (let field of requiredFields) {
+        if (!data[field]) return showmessaje(`El campo ${field} es obligatorio`, 'error');
+    }
+
+    const payload = {
+        documento_id: data.documento_id,
+        motivo: data.motivo,
+        sala: data.sala,
+        fecha_ingreso: data.fecha_ingreso
+    };
+
+    try {
+        const API_URL = 'https://apiclinica.derwincode.com/api/v1/auth/register_internado';
+        const res = await API.sendRequest(API_URL, payload, 'POST', { Authorization: `Bearer ${token}` });
+
+        if (res?.status === 'success') {
+            showmessaje('Internado registrado correctamente', 'success');
+            e.target.reset();
+        } else {
+            showmessaje(res?.message || 'Error al registrar internado', 'error');
+        }
+    } catch (err) {
+        showmessaje('Error de conexión: ' + (err.message || 'desconocido'), 'error');
+    }
+};
+
+const internadoForm = $('internado-form');
+if (internadoForm) internadoForm.addEventListener('submit', handleInternado);
 EOF
 ```
 
