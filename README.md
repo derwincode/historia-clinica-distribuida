@@ -75,18 +75,19 @@ k8s/citus
 cat <<EOF > backend/app/api/v1/endpoints/auth.py
 # backend/app/api/v1/endpoints/auth.py
 from fastapi import APIRouter, HTTPException, status, Body, Depends
-from app.schemas.auth import UserLogin, UserCreate
-from app.schemas.auth import PacienteCreate
-from app.services.auth_service import create_user_service, authenticate_and_create_token, create_paciente_service
+from app.schemas.auth import UserLogin, UserCreate, PacienteCreate
+from app.services.auth_service import (
+    create_user_service,
+    authenticate_and_create_token,
+    create_paciente_service
+)
 from app.core.security import get_current_user
 
 router = APIRouter()
 
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate):
-    """
-    Registrar un usuario normal.
-    """
     try:
         create_user_service(user)
     except ValueError as e:
@@ -95,11 +96,9 @@ def register(user: UserCreate):
         return {"status": "error", "message": "No se ha podido registrar el usuario"}
     return {"status": "success", "message": "Usuario registrado"}
 
+
 @router.post("/login")
 def login(form_data: UserLogin):
-    """
-    Iniciar sesión de un usuario.
-    """
     auth = authenticate_and_create_token(form_data.email, form_data.password)
     if not auth:
         return {"status": "error", "message": "No se pudo iniciar su sesión"}
@@ -110,6 +109,7 @@ def login(form_data: UserLogin):
         "token": auth["access_token"],
         "rol": auth["user"]["rol"]
     }
+
 
 @router.post("/register_paciente", status_code=201)
 def register_paciente(
@@ -130,6 +130,7 @@ def register_paciente(
         if str(e) == "email_exists":
             return {"status": "error", "message": "Este usuario ya existe"}
         return {"status": "error", "message": "No se pudo registrar el paciente"}
+
     return {"status": "success", "message": "Paciente registrado", "data": result}
 EOF
 ```
@@ -179,9 +180,9 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("sub")
         if not user_id:
-            raise HTTPException(status_code=401, detail="Token inválido")
+          raise HTTPException(status_code=401, detail="Token inválido")
 
-        q = """SELECT id, nombre, apellido, email, rol FROM usuario WHERE id = %s"""
+        q = "SELECT id, nombre, apellido, email, rol, created_at, updated_at FROM usuario WHERE id = %s"
         user = query_one(q, (user_id,))
 
         if not user:
@@ -285,20 +286,17 @@ class UserCreate(BaseModel):
     apellido: constr(min_length=1)
     email: EmailStr
     password: constr(min_length=8)
-    rol: constr(pattern="^(paciente|medico|admisionista|resultados)$")
+    rol: constr(pattern="^(paciente|medico|admisionista)$")
 
 class PacienteCreate(BaseModel):
     documento_id: constr(min_length=1)
     tipo_documento: Optional[str]
     fecha_nacimiento: str
     sexo: Optional[str]
-    direccion: Optional[str]
     telefono: Optional[str]
-    contacto_emergencia: Optional[str]
-    alergias: Optional[str]
-    medicamentos_actuales: Optional[str]
     regimen: Optional[str]
     eps: Optional[str]
+    tipo_sangre: Optional[str]
 
 class UserOut(BaseModel):
     id: Optional[str]
@@ -323,7 +321,7 @@ from app.core.security import get_password_hash, verify_password, create_access_
 from app.schemas.auth import UserCreate, PacienteCreate
 
 def get_user_by_email(email: str):
-    q = "SELECT id, nombre, apellido, email, hash_password, rol, fecha_creacion FROM usuario WHERE email = %s"
+    q = "SELECT id, nombre, apellido, email, hash_password, rol, created_at, updated_at FROM usuario WHERE email = %s"
     return query_one(q, (email,))
 
 def create_user_service(user_in: UserCreate):
@@ -335,7 +333,7 @@ def create_user_service(user_in: UserCreate):
     q = """
     INSERT INTO usuario (nombre, apellido, email, hash_password, rol)
     VALUES (%s, %s, %s, %s, %s)
-    RETURNING id, nombre, apellido, email, rol, fecha_creacion
+    RETURNING id, nombre, apellido, email, rol, created_at, updated_at
     """
     row = execute(q, (user_in.nombre, user_in.apellido, user_in.email, hashed, user_in.rol))
     if not row:
@@ -352,36 +350,27 @@ def authenticate_and_create_token(email: str, password: str):
     return {"access_token": token, "user": user}
 
 def create_paciente_service(user_in: UserCreate, paciente_in: PacienteCreate):
-    """
-    Registra un usuario y su perfil de paciente.
-    
-    user_in: objeto UserCreate
-    paciente_in: objeto PacienteCreate
-    """
     user = create_user_service(user_in)
     usuario_id = user["id"]
 
     q = """
     INSERT INTO paciente (
         documento_id, tipo_documento, fecha_nacimiento, sexo,
-        direccion, telefono, contacto_emergencia, alergias,
-        medicamentos_actuales, regimen, eps, usuario_id
+        telefono, regimen, eps, tipo_sangre, usuario_id
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    RETURNING id, usuario_id
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    RETURNING id, usuario_id, created_at, updated_at
     """
+
     params = (
         paciente_in.documento_id,
         paciente_in.tipo_documento,
         paciente_in.fecha_nacimiento,
         paciente_in.sexo,
-        paciente_in.direccion,
         paciente_in.telefono,
-        paciente_in.contacto_emergencia,
-        paciente_in.alergias,
-        paciente_in.medicamentos_actuales,
         paciente_in.regimen,
         paciente_in.eps,
+        paciente_in.tipo_sangre,
         usuario_id
     )
 
@@ -482,9 +471,9 @@ EOF
 ```
 
 #### Configurar el frontend
-##### 10.1 frontend/css/admisionistas.css.
+##### 10.1 frontend/css/admisionista.css.
 ```bash
-cat <<EOF > frontend/css/admisionistas.css
+cat <<'EOF' > frontend/css/admisionista.css
 * {
     margin: 0;
     padding: 0;
@@ -719,7 +708,7 @@ EOF
 
 ##### 10.2 frontend/css/index.css.
 ```bash
-cat <<EOF > frontend/css/index.css
+cat <<'EOF' > frontend/css/index.css
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 * {
@@ -829,9 +818,9 @@ h2 {
 EOF
 ```
 
-##### 10.3 frontend/html/admisionistas.html.
+##### 10.3 frontend/html/admisionista.html.
 ```bash
-cat <<EOF > frontend/html/admisionistas.html
+cat <<'EOF' > frontend/html/admisionista.html
 <!DOCTYPE html>
 <html lang="es">
 
@@ -882,6 +871,7 @@ cat <<EOF > frontend/html/admisionistas.html
                 <form id="registro-form" class="form-grid-2">
                     <input type="text" name="nombre" id="pNombre" placeholder="Nombres" required>
                     <input type="text" name="apellido" id="pApellidos" placeholder="Apellidos" required>
+
                     <select name="tipo_documento" id="pTipoDoc" required>
                         <option value="">Tipo de documento</option>
                         <option>CC</option>
@@ -889,22 +879,40 @@ cat <<EOF > frontend/html/admisionistas.html
                         <option>CE</option>
                         <option>RC</option>
                     </select>
+
                     <input type="text" name="documento_id" id="pDocumento" placeholder="Número de documento" required>
                     <input type="password" name="password" id="pContrasena" placeholder="Contraseña" required>
                     <input type="date" name="fecha_nacimiento" id="pNacimiento" required>
+
                     <select name="sexo" id="pSexo" required>
                         <option value="">Sexo</option>
                         <option>Masculino</option>
                         <option>Femenino</option>
                     </select>
+
                     <input type="email" name="email" id="pCorreo" placeholder="Correo electrónico" required>
                     <input type="text" name="telefono" id="pTelefono" placeholder="Celular" required>
+
                     <select name="regimen" id="pRegimen" required>
                         <option value="">Régimen</option>
                         <option>Subsidiado</option>
                         <option>Contributivo</option>
                     </select>
+
                     <input type="text" name="eps" id="pEPS" placeholder="EPS" required>
+
+                    <select name="tipo_sangre" id="pTipoSangre" required>
+                        <option value="">Tipo de sangre</option>
+                        <option>O+</option>
+                        <option>O-</option>
+                        <option>A+</option>
+                        <option>A-</option>
+                        <option>B+</option>
+                        <option>B-</option>
+                        <option>AB+</option>
+                        <option>AB-</option>
+                    </select>
+
                     <button type="submit" class="btn-primary">Guardar</button>
                 </form>
             </div>
@@ -1046,7 +1054,7 @@ EOF
 
 ##### 10.4 frontend/html/index.html.
 ```bash
-cat <<EOF > frontend/html/index.html
+cat <<'EOF' > frontend/html/index.html
 <!DOCTYPE html>
 <html lang="es">
 
@@ -1105,7 +1113,7 @@ EOF
 
 ##### 10.5 frontend/javascript/admisionista.js.
 ```bash
-cat <<EOF > frontend/javascript/admisionista.js
+cat <<'EOF' > frontend/javascript/admisionista.js
 import { showmessaje } from './showmessaje.js';
 import { API } from './api.js';
 
@@ -1127,7 +1135,7 @@ const handleRegistroPaciente = async e => {
 
   const data = getFormData(e.target);
 
-  const requiredFields = ['nombre','apellido','email','password','documento_id','fecha_nacimiento','sexo','regimen','eps'];
+  const requiredFields = ['nombre','apellido','email','password','documento_id','fecha_nacimiento','sexo','regimen','eps','tipo_sangre'];
   for (let field of requiredFields) {
     if (!data[field]) return showmessaje(`El campo ${field} es obligatorio`, 'error');
   }
@@ -1148,13 +1156,10 @@ const handleRegistroPaciente = async e => {
       tipo_documento: data.tipo_documento || '',
       fecha_nacimiento: data.fecha_nacimiento,
       sexo: data.sexo,
-      direccion: data.direccion || '',
       telefono: data.telefono || '',
-      contacto_emergencia: data.contacto_emergencia || '',
-      alergias: data.alergias || '',
-      medicamentos_actuales: data.medicamentos_actuales || '',
       regimen: data.regimen,
-      eps: data.eps
+      eps: data.eps,
+      tipo_sangre: data.tipo_sangre
     }
   };
 
@@ -1180,7 +1185,7 @@ EOF
 
 ##### 10.6 frontend/javascript/api.js.
 ```bash
-cat <<EOF > frontend/javascript/api.js
+cat <<'EOF' > frontend/javascript/api.js
 export class API {
     static async sendRequest(url, data = {}, method = 'POST') {
         try {
@@ -1197,7 +1202,7 @@ export class API {
             const res = await fetch(url, opts);
             const json = await res.json();
 
-            if (!res.ok) return { status: 'error', message: json.message || `HTTP ${res.status}` };
+            if (!res.ok) return { status: 'error', message: json.message || `HTTP ${res.status}`};
 
             return json;
         } catch (err) {
@@ -1210,7 +1215,7 @@ EOF
 
 ##### 10.7 frontend/javascript/index.js.
 ```bash
-cat <<EOF > frontend/javascript/index.js
+cat <<'EOF' > frontend/javascript/index.js
 import { showmessaje } from './showmessaje.js';
 import { API } from './api.js';
 
@@ -1295,7 +1300,7 @@ EOF
 
 ##### 10.8 frontend/javascript/showmessaje.js.
 ```bash
-cat <<EOF > frontend/javascript/showmessaje.js
+cat <<'EOF' > frontend/javascript/showmessaje.js
 export function showmessaje(message, type) {
     Toastify({
         text: message,
