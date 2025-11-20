@@ -1638,19 +1638,19 @@ CREATE TABLE paciente (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 SELECT create_distributed_table('paciente', 'id');
+
+DROP TABLE IF EXISTS internado CASCADE;
+CREATE TABLE internado (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    paciente_id UUID NOT NULL REFERENCES paciente(id),
+    motivo TEXT NOT NULL,
+    sala VARCHAR(50) NOT NULL,
+    fecha_ingreso DATE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+SELECT create_distributed_table('internado', 'id');
 EOF
-```
-
-#### 20. Construir imagen del backend y cargar en Minikube.
-```bash
-docker build -t $BACKEND_IMAGE backend/
-minikube image load $BACKEND_IMAGE
-```
-
-#### 21. Verificar pods y nodos activos.
-```bash
-kubectl get pods,svc -n $K8S_NAMESPACE -o wide
-kubectl exec -n $K8S_NAMESPACE -it citus-coordinator-0 -- psql -U $DB_USER -d $DB_NAME -c "SELECT * FROM citus_get_active_worker_nodes();"
 ```
 
 ##### 22. Aplicar configuración.
