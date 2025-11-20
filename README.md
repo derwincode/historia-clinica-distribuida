@@ -1660,8 +1660,10 @@ minikube image load $BACKEND_IMAGE
 ```
 
 #### 21. Verificar pods y nodos activos.
+```bash
 kubectl get pods,svc -n $K8S_NAMESPACE -o wide
 kubectl exec -n $K8S_NAMESPACE -it citus-coordinator-0 -- psql -U $DB_USER -d $DB_NAME -c "SELECT * FROM citus_get_active_worker_nodes();"
+```
 
 #### 22. Aplicar configuración.
 ```bash
