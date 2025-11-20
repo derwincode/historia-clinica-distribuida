@@ -1637,7 +1637,7 @@ CREATE TABLE paciente (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
-SELECT create_distributed_table('paciente', 'id');
+SELECT create_reference_table('paciente');
 
 DROP TABLE IF EXISTS internado CASCADE;
 CREATE TABLE internado (
